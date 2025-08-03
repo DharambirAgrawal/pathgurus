@@ -32,6 +32,7 @@ export default function GoogleSigninButton({
       // Ensure the event is from the correct origin
       if (event.origin === process.env.NEXT_PUBLIC_API_URL) {
         const res = await googleLoginAction(event.data);
+        console.log(res);
 
         if (res.success) {
           showToast("success", res.message || "Success");

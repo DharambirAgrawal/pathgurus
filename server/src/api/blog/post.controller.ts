@@ -345,3 +345,91 @@ export const getPostContent = async (req: Request, res: Response) => {
     data: post,
   });
 };
+
+export const editPost = async (req: Request, res: Response) => {
+  const { slug } = req.params;
+  const {
+    title,
+    timeRead,
+    content,
+    summary,
+    imageUrl,
+    metaTitle,
+    metaDesc,
+    metaKeywords,
+    metaImage,
+    categories,
+    tags,
+  } = req.body;
+  const role = (req as any).role;
+  const userId = (req as any).userId;
+  if (role != "ADMIN" && role != "AUTHOR") {
+    throw new AppError("Not Authorized to edit the posts", 400);
+  }
+
+  const post = await Post.findOne({ slug: slug });
+  const categoriesToConnectOrCreate = categories.map(
+    async (category: string) => {
+      let categoryDoc = await Category.findOne({
+        slug: generateUniqueSlug(category),
+      });
+      if (!categoryDoc) {
+        categoryDoc = await Category.create({
+          name: category,
+          slug: generateUniqueSlug(category),
+        });
+      }
+      return categoryDoc._id;
+    }
+  );
+
+  // Create or connect tags
+  const tagsToConnectOrCreate = tags.map(async (tag: string) => {
+    let tagDoc = await Tag.findOne({ slug: generateUniqueSlug(tag) });
+    if (!tagDoc) {
+      tagDoc = await Tag.create({ name: tag, slug: generateUniqueSlug(tag) });
+    }
+    return tagDoc._id;
+  });
+  if (!post) {
+    throw new Error("Post not found");
+  }
+
+  // Call the editPost method on the found post
+
+  res.status(200).json({
+    success: true,
+    message: "Post deleted successfully",
+  });
+};
+
+export const deletePost = async (req: Request, res: Response) => {
+  const { slug } = req.params;
+  const role = (req as any).role;
+
+  if (role != "ADMIN" && role != "AUTHOR") {
+    throw new AppError("Not Authorized to delete the posts", 400);
+  }
+
+  if (!slug) {
+    throw new AppError("Slug is required", 400);
+  }
+
+  const post = await Post.findOne({ slug });
+  if (!post) {
+    throw new Error("Post not found");
+  }
+
+  // Call the deletePost method from the post instance
+  await post.deletePost();
+
+  if (!post) {
+    throw new AppError("Post not found", 404);
+  }
+
+  res.status(200).json({
+    success: true,
+    message: "Post deleted successfully",
+  });
+  // Remove post from author's posts array
+};

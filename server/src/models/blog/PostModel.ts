@@ -2,6 +2,9 @@
 import mongoose, { Document, Schema } from "mongoose";
 import { DEFAULT_POST_IMAGE } from "../../utils/data";
 import { generateUniqueSlug } from "../../api/blog/blog.helper";
+import Author from "./AuthorModel";
+import Category from "./CategoryModel";
+import Tag from "./TagModel";
 
 // Enum for PostStatus
 export enum PostStatus {
@@ -37,6 +40,7 @@ interface IPost extends Document {
   metaData: IPostMetaData; // Typed metaData
   status: PostStatus;
   saveSlug: () => Promise<string>;
+  deletePost: () => Promise<void>;
 }
 
 const postSchema: Schema<IPost> = new Schema(
@@ -73,6 +77,33 @@ const postSchema: Schema<IPost> = new Schema(
   },
   { timestamps: true } // Automatically handle createdAt and updatedAt fields
 );
+
+postSchema.methods.deletePost = async function () {
+  // Step 1: Remove this post from the Author's posts
+  if (this.authorId) {
+    await Author.updateOne(
+      { userId: this.authorId },
+      { $pull: { posts: this._id } }
+    );
+  }
+
+  // Step 2: Remove this post from the Category's posts
+  if (this.categories.length > 0) {
+    await Category.updateMany(
+      { _id: { $in: this.categories } },
+      { $pull: { posts: this._id } }
+    );
+  }
+  if (this.categories.length > 0) {
+    await Tag.updateMany(
+      { _id: { $in: this.tags } },
+      { $pull: { posts: this._id } }
+    );
+  }
+
+  // Step 3: Now delete the post
+  await this.remove();
+};
 
 postSchema.methods.saveSlug = async function () {
   const baseSlug = generateUniqueSlug(this.title);
